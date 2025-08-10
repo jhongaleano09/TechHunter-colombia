@@ -1,0 +1,9 @@
+# requirements.txt
+
+# Core de pandas para la manipulación y guardado de datos
+pandas
+
+# Librería principal para web scraping dinámico
+playwright
+
+# Aunque no es estrictamente obligatoria, es una buena práctica
