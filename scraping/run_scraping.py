@@ -7,10 +7,9 @@ import os
 import logging
 
 # --- Importación de Scrapers ---
-# Se importa el scraper activo para Alkosto.
 # Los otros están comentados como placeholders para futuras implementaciones.
 from stores.alkosto import scrape_alkosto
-# from stores.falabella import scrape_falabella
+from stores.falabella import scrape_falabella
 # from stores.ktronix import scrape_ktronix
 
 # Configuración del logging
@@ -22,8 +21,8 @@ OUTPUT_DIR = "data/raw"
 # Mapeo de tiendas con sus respectivas funciones de scraping.
 # Esto facilita la adición de nuevas tiendas en el futuro.
 ACTIVE_STORES = {
-    "alkosto": scrape_alkosto,
-    # "falabella": scrape_falabella,
+    # "alkosto": scrape_alkosto,
+    "falabella": scrape_falabella,
     # "ktronix": scrape_ktronix,
 }
 
