@@ -22,11 +22,28 @@ DEBUG_DIR = os.path.join('scraping', 'debug')
 def _clean_price(price_str: Optional[str]) -> Optional[float]:
     if price_str is None or not price_str.strip():
         return None
-    # Remove all non-digit characters except for the comma and period for decimals, then replace comma with period
-    numeric_string = re.sub(r'[^\d,.]', '', price_str).replace('.', '').replace(',', '.')
+    
+    # Remove currency symbols and any non-numeric characters except comma and period
+    cleaned_str = re.sub(r'[^\d,.]', '', price_str)
+    
+    # Handle thousands separator (period) and decimal separator (comma)
+    # Example: "1.234.567,89" -> "1234567.89"
+    # Example: "1.234.567" -> "1234567"
+    if ',' in cleaned_str and '.' in cleaned_str:
+        # Check if comma is likely a decimal separator (appears after a period)
+        if cleaned_str.rfind(',') > cleaned_str.rfind('.'):
+            numeric_string = cleaned_str.replace('.', '').replace(',', '.')
+        else: # Period is likely decimal separator
+            numeric_string = cleaned_str.replace(',', '')
+    elif ',' in cleaned_str: # Only comma, assume it's decimal
+        numeric_string = cleaned_str.replace(',', '.')
+    else: # Only period or no separators, assume period is thousands or no decimal
+        numeric_string = cleaned_str.replace('.', '')
+
     try:
         return float(numeric_string)
     except ValueError:
+        logging.warning(f"Could not convert price '{price_str}' to float. Cleaned: '{numeric_string}'")
         return None
 
 async def _handle_notification(page: Page):
@@ -100,23 +117,46 @@ async def scrape_falabella() -> List[Dict[str, Any]]:
                         continue
 
                     name_element = card.locator('xpath=.//b[contains(@class, "pod-title")]').first
-                    url_element = card.locator('xpath=.//a').first
-
                     product_name = await name_element.text_content() if await name_element.count() > 0 else "Nombre no disponible"
-                    current_price_str = await price_element.text_content() if await price_element.count() > 0 else None
-                    product_url = await url_element.get_attribute('href') if await url_element.count() > 0 else "URL no disponible"
+                    # product_url can be directly from the card as it's an <a> tag
+                    product_url = await card.get_attribute('href') if await card.count() > 0 else "URL no disponible"
 
                     if product_url and not product_url.startswith('http'):
                         product_url = BASE_URL + product_url
 
+                    # Extract Prices within the price_element (ol[contains(@class, "pod-prices")])
+                    # Look for common patterns for current and normal prices within this element
+                    current_price_str = None
+                    normal_price_str = None
+
+                    raw_price_text = await price_element.text_content()
+                    current_price_str = None
+                    normal_price_str = None
+
+                    # Regex to find numbers that look like prices (e.g., 1.234.567 or 123.456,78)
+                    # This regex looks for digits, optionally followed by periods or commas, and then more digits.
+                    # It tries to capture the most common price formats.
+                    price_matches = re.findall(r'\d{1,3}(?:\.\d{3})*(?:,\d+)?|\d+(?:,\d{2})?', raw_price_text)
+                    
+                    # Filter out matches that are too short to be prices or are just percentages
+                    valid_prices = [match for match in price_matches if len(match) > 2 and '%' not in match]
+
+                    if valid_prices:
+                        # Assume the first valid price is the current price
+                        current_price_str = valid_prices[0]
+                        # If there's more than one valid price, assume the last one is the normal price
+                        if len(valid_prices) > 1:
+                            normal_price_str = valid_prices[-1]
+
+
                     product_info = {
                         'product_name': product_name.strip() if product_name else "Nombre no disponible",
                         'current_price': _clean_price(current_price_str),
-                        'normal_price': None, 
+                        'normal_price': _clean_price(normal_price_str),
                         'product_url': product_url,
                     }
                     
-                    if product_name != "Nombre no disponible" and current_price_str:
+                    if product_name != "Nombre no disponible" and current_price_str: # Only add if product name and current price are available
                         products_data.append(product_info)
 
                 logging.info(f"Extraídos {len(products_data)} productos de la página {page_num}.")
