@@ -21,7 +21,7 @@ OUTPUT_DIR = "data/raw"
 # Mapeo de tiendas con sus respectivas funciones de scraping.
 # Esto facilita la adición de nuevas tiendas en el futuro.
 ACTIVE_STORES = {
-    # "alkosto": scrape_alkosto,
+    "alkosto": scrape_alkosto,
     "falabella": scrape_falabella,
     # "ktronix": scrape_ktronix,
 }
