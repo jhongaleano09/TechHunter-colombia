@@ -24,7 +24,7 @@ def _clean_price(price_str: Optional[str]) -> Optional[float]:
         return None
 
     # eliminar símbolos de moneda y cualquier carácter no numérico excepto coma y punto
-    cleaned_str = re.sub(r'[^\d,.]', '', price_str)
+    cleaned_str = re.sub(r'[^\d,.\s]', '', price_str)
 
     # Manejar separador de miles (punto) y separador decimal (coma)
     # Ejemplo: "1.234.567,89" -> "1234567.89"
@@ -116,13 +116,9 @@ async def scrape_falabella() -> List[Dict[str, Any]]:
                     if await price_element.count() == 0:
                         continue
 
-                    brand_element = card.locator('xpath=.//b[contains(@class, "pod-title")]').first
-                    brand = await brand_element.text_content() if await brand_element.count() > 0 else ""
-                    
-                    title_element = card.locator('xpath=.//div[contains(@class, "pod-sub-title")]').first
-                    title = await title_element.text_content() if await title_element.count() > 0 else ""
-                    
-                    product_name = f"{brand.strip()} {title.strip()}".strip()
+                    # Corrected product_name extraction
+                    product_name_element = card.locator('xpath=.//b[contains(@class, "pod-subTitle")]').first
+                    product_name = await product_name_element.text_content() if await product_name_element.count() > 0 else ""
                     if not product_name:
                         product_name = "Nombre no disponible"
 
@@ -165,13 +161,14 @@ async def scrape_falabella() -> List[Dict[str, Any]]:
                     logging.info(f"Screenshot de depuración guardado en: {debug_path}")
                 except Exception as screenshot_e:
                     logging.warning(f"No se pudo tomar screenshot de depuración: {screenshot_e}")
-                continue
+                break # Exit the loop on critical error
             except Exception as e:
                 logging.error(f"Error inesperado en página {page_num}: {e}")
-                continue
+                break # Exit the loop on critical error
         
         await context.close()
         await browser.close()
+    return products_data # Added return statement here
 
 async def main():
     """Función principal para ejecutar el scraper"""
